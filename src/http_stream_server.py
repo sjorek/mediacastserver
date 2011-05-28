@@ -11,7 +11,11 @@ class StreamHTTPRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     extensions_map.update({
         '': 'application/octet-stream', # Default
         '.m3u8': 'application/x-mpegURL',
-        '.ts': 'video/MP2T'
+        '.ts': 'video/MP2T',
+        '.ogv': 'video/ogg',
+        '.mp4': 'video/mp4',
+        '.m4v': 'video/mp4',
+        '.webm': 'video/webm'
         })
 
 if __name__ == "__main__":
