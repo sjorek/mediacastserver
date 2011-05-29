@@ -10,8 +10,8 @@ class StreamHTTPRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     extensions_map = mimetypes.types_map.copy()
     extensions_map.update({
         '': 'application/octet-stream', # Default
-        '.m3u8': 'application/x-mpegURL',
-        '.ts': 'video/MP2T',
+        '.m3u8': 'application/x-mpegurl',
+        '.ts': 'video/mp2t',
         '.ogv': 'video/ogg',
         '.mp4': 'video/mp4',
         '.m4v': 'video/mp4',
