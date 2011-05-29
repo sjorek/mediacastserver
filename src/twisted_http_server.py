@@ -1,3 +1,5 @@
+#!/usr/bin/env python -B
+
 import sys, os
 from twisted.web.server import Site
 from twisted.web.static import File
