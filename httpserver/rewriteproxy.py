@@ -92,8 +92,6 @@ class ProxyServer(throxy.ProxyServer):
     def __init__(self):
         if options.rewrite_map:
             d = dict([m.split(';') for m in options.rewrite_map.split(',')])
-            print d
-            sys.exit()
             Header.rewrite_forward.update(d)
             Header.rewrite_reverse.update(dict(zip(d.values(), d.keys())))
         throxy.ProxyServer.__init__(self)
@@ -119,11 +117,11 @@ if __name__ == '__main__':
         metavar='<port>', default=8080,
         help="listen on this port number (default 8080)")
     parser.add_option('-d', dest='download', action='store', type='float',
-        metavar='<kbps>', default=28.8,
-        help="download bandwidth in kbps (default 28.8)")
+        metavar='<kbps>', default=112.0,
+        help="download bandwidth in kbps (default 112.0, aka. edge)")
     parser.add_option('-u', dest='upload', action='store', type='float',
-        metavar='<kbps>', default=28.8,
-        help="upload bandwidth in kbps (default 28.8)")
+        metavar='<kbps>', default=112.0,
+        help="upload bandwidth in kbps (default 112.0, aka. edge)")
     parser.add_option('-o', dest='allow_remote', action='store_true',
         help="allow remote clients (WARNING: open proxy)")
     parser.add_option('-q', dest='quiet', action='store_true',
@@ -146,9 +144,11 @@ if __name__ == '__main__':
         metavar='<bytes>', type='int', default=8192,
         help="maximum size for gzip decompression (default 8192)")
     parser.add_option('-m', dest='rewrite_map', action='store',
-        type='string', default='',
+        metavar='<map>', type='string', default='',
         help="host rewrite map, eg: www.some.tld;localhost:8080,www.other.tld:81;localhost:8081")
     options, args = parser.parse_args()
+    setattr(throxy,'options',options)
+    setattr(throxy,'args',args)
     proxy = ProxyServer()
     try:
         asyncore.loop(timeout=0.1)

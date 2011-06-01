@@ -1,5 +1,5 @@
 """
-This is an .tac file which starts a throttled webserver on port 8080 and
+This is an .tac file which starts a webserver on port 8080 and
 serves files from the current working directory.
 
 The important part of this, the part that makes it a .tac file, is
@@ -51,5 +51,5 @@ def getWebService():
 application = service.Application("web server")
 
 # attach the service to its parent application
-service = getWebService()
-service.setServiceParent(application)
+webservice = getWebService()
+webservice.setServiceParent(application)
