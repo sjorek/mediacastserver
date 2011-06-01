@@ -165,8 +165,8 @@ def getWebService():
 
 # this is the core part of any tac file, the creation of the root-level
 # application object
-application = service.Application("(Write-)Bandwidth throttled web server")
+webapp = service.Application("(Write-)Bandwidth throttled web server")
 
 # attach the service to its parent application
-service = getWebService()
-service.setServiceParent(application)
+webservice = getWebService()
+webservice.setServiceParent(webapp)
