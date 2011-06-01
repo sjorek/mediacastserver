@@ -48,8 +48,8 @@ def getWebService():
 
 # this is the core part of any tac file, the creation of the root-level
 # application object
-application = service.Application("web server")
+webapp = service.Application("web server")
 
 # attach the service to its parent application
 webservice = getWebService()
-webservice.setServiceParent(application)
+webservice.setServiceParent(webapp)
