@@ -5,7 +5,9 @@ from twisted.web import server, static
 from twisted.internet import reactor
 from twisted.protocols import policies
 
-import mediatypes
+sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
+
+from httpserver import mediatypes
 
 SERVE_PATH = len(sys.argv) > 1 and sys.argv[1] or os.getcwd()
 SERVE_PORT = len(sys.argv) > 2 and int(sys.argv[2]) or 8080
@@ -29,7 +31,7 @@ factory = server.Site(resource)
 
 SERVE_LIMIT = ''
 if SERVE_KBIT > 0:
-    SERVE_LIMIT = 'limited to %d kbits' % SERVE_KBIT
+    SERVE_LIMIT = ' limited to %d kbits' % SERVE_KBIT
     factory = policies.ThrottlingFactory(factory, writeLimit=SERVE_KBIT * 128)
 
 if __name__ == "__main__":

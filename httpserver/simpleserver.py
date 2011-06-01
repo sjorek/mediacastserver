@@ -1,8 +1,12 @@
 #!/usr/bin/env python -B
 
+import sys, os
 import mimetypes
 import BaseHTTPServer
 import SimpleHTTPServer
+
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
 import mediatypes
 
 class StreamHTTPRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):

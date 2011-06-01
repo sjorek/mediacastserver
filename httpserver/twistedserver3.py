@@ -14,9 +14,9 @@ from twisted.python import log
 from twisted.protocols import policies
 from twisted.web import http, static, server
 
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
 
-import video_mime_types
+from httpserver import mediatypes
 
 SERVE_PATH = os.getcwd()
 SERVE_PORT = 8080
@@ -34,12 +34,12 @@ class FileTransfer(static.FileTransfer):
         self.size = size
         self.request = request
         self.written = self.file.tell()
-        request.registerProducer(self, 1)
+        request.registerProducer(self, 0)
     
     def resumeProducing(self):
         if self.paused or not self.request:
             return
-        log.msg('resumed producing')
+        log.msg('%s resumed producing' % self)
         data = self.file.read(min(SERVE_LIMIT_BYTES_PER_SECOND,
                                   abstract.FileDescriptor.bufferSize,
                                   self.size - self.written))
@@ -54,20 +54,20 @@ class FileTransfer(static.FileTransfer):
             self.request = None
     
     def pauseProducing(self):
-        log.msg('paused producing')
+        log.msg('%s paused producing' % self)
         self.paused = True
     
     def unpauseProducing(self):
-        log.msg('unpaused producing')
+        log.msg('%s unpaused producing' % self)
         self.paused = False
 
 class File(static.File):
     __doc__ = static.File.__doc__
     
     contentTypes = static.File.contentTypes
-    contentTypes.update(video_mime_types.VIDEO_MIME_TYPES)
+    contentTypes.update(mediatypes.VIDEO_MIME_TYPES)
     
-    def __init__(self, path, defaultType=video_mime_types.DEFAULT_MIME_TYPE,
+    def __init__(self, path, defaultType=mediatypes.DEFAULT_MIME_TYPE,
                  ignoredExts=(), registry=None, allowExt=0):
         """Create a file with the given path.
         """
@@ -76,7 +76,7 @@ class File(static.File):
                              allowExt=allowExt)
     
     def upgradeToVersion2(self):
-        self.defaultType = video_mime_types.DEFAULT_MIME_TYPE
+        self.defaultType = mediatypes.DEFAULT_MIME_TYPE
     
     def render(self, request):
         """You know what you doing."""
