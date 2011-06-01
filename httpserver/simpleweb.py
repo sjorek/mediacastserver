@@ -1,4 +1,4 @@
-#!/usr/bin/env python -B
+#!/usr/bin/env python
 
 import sys, os
 import mimetypes

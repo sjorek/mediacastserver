@@ -1,4 +1,4 @@
-#! /usr/bin/env python -B
+#! /usr/bin/env python
 
 __revision__ = '$Rev$'
 
@@ -114,8 +114,8 @@ if __name__ == '__main__':
         metavar='<ip>', default='',
         help="listen on this interface only (default all)")
     parser.add_option('-p', dest='port', action='store', type='int',
-        metavar='<port>', default=8080,
-        help="listen on this port number (default 8080)")
+        metavar='<port>', default=8081,
+        help="listen on this port number (default 8081)")
     parser.add_option('-d', dest='download', action='store', type='float',
         metavar='<kbps>', default=112.0,
         help="download bandwidth in kbps (default 112.0, aka. edge)")
@@ -152,7 +152,14 @@ if __name__ == '__main__':
     proxy = ProxyServer()
     try:
         asyncore.loop(timeout=0.1)
+    except KeyboardInterrupt:
+        pass
     except:
         proxy.shutdown(2)
         proxy.close()
         raise
+    try:
+        proxy.shutdown(2)
+    except:
+        pass
+    proxy.close()
