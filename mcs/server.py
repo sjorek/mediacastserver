@@ -12,9 +12,9 @@ from twisted.web import server, static, distrib
 from twisted.internet import interfaces
 from twisted.python import usage
 from twisted.application import internet, service, strports
-from mcs import mediatypes
+from mcs import bonjour, mediatypes
 
-class StaticFile(static.File):
+class File(static.File):
     __doc__ = static.File.__doc__
     
     contentTypes = static.File.contentTypes
@@ -83,12 +83,12 @@ This starts a webserver."""
         of the web server.
         """
 
-        self['root'] = StaticFile(os.path.abspath(path))
+        self['root'] = File(os.path.abspath(path))
 
 
     def opt_mime_type(self, defaultType):
         """Specify the default mime-type for static files."""
-        if not isinstance(self['root'], StaticFile):
+        if not isinstance(self['root'], File):
             raise usage.UsageError("You can only use --mime_type after --path.")
         self['root'].defaultType = defaultType
 
@@ -97,7 +97,7 @@ This starts a webserver."""
 
     def opt_allow_ignore_ext(self):
         """Specify whether or not a request for 'foo' should return 'foo.ext'"""
-        if not isinstance(self['root'], StaticFile):
+        if not isinstance(self['root'], File):
             raise usage.UsageError("You can only use --allow_ignore_ext "
                                    "after --path.")
         self['root'].ignoreExt('*')
@@ -105,7 +105,7 @@ This starts a webserver."""
     def opt_ignore_ext(self, ext):
         """Specify an extension to ignore.  These will be processed in order.
         """
-        if not isinstance(self['root'], StaticFile):
+        if not isinstance(self['root'], File):
             raise usage.UsageError("You can only use --ignore_ext "
                                    "after --path.")
         self['root'].ignoreExt(ext)
@@ -133,13 +133,13 @@ This starts a webserver."""
 def makeService(config):
     s = service.MultiService()
     if not config['root']:
-        config['root'] = StaticFile(os.path.abspath(os.getcwd()))
+        config['root'] = File(os.path.abspath(os.getcwd()))
     root = config['root']
 
     if config['indexes']:
         config['root'].indexNames = config['indexes']
 
-    if isinstance(root, StaticFile):
+    if isinstance(root, File):
         root.registry.setComponent(interfaces.IServiceCollection, s)
 
     if config['logfile']:
@@ -149,12 +149,21 @@ def makeService(config):
 
     site.displayTracebacks = not config["notracebacks"]
 
+    root_mdns = bonjour.Service()
+    root_mdns.setName("bonjour-http")
+    root_mdns.setServiceParent(s)
+
     if config['https']:
         from twisted.internet.ssl import DefaultOpenSSLContextFactory
         i = internet.SSLServer(int(config['https']), site,
                       DefaultOpenSSLContextFactory(config['privkey'],
                                                    config['certificate']))
         i.setServiceParent(s)
+
+        i_mdns = bonjour.Service()
+        i_mdns.setName("bonjour-https")
+        i_mdns.setServiceParent(s)
+
     strports.service(config['port'], site).setServiceParent(s)
 
     return s
