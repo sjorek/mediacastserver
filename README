@@ -1,0 +1,10 @@
+Mediacast Server
+================
+
+Execute `PYTHONPATH=path/to/mediacastserver twistd mcs --help` to get help.
+
+
+Mediacast Proxy
+===============
+
+View the file mcs/proxy.py for documentation and example usage.
