@@ -1,4 +1,6 @@
 /.project
 /.pydevproject
 /.settings
+*.pyc
+/twisted/plugins/dropin.cache
 
