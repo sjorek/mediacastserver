@@ -7,7 +7,7 @@ import socket
 import asyncore
 
 d = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-sys.path.insert(0, os.path.abspath(os.path.join(d, '..', 'throxy')))
+sys.path.insert(0, os.path.abspath(os.path.join(d, os.path.pardir, 'throxy')))
 sys.path.insert(0, os.path.abspath(d))
 del d
 
@@ -19,7 +19,6 @@ class Header(throxy.Header):
     rewrite_reverse = {}
     
     def extract_host(self):
-        """Extract host and perform DNS lookup."""
         """Extract host and perform DNS lookup."""
         self.host = self.extract('Host')
         if self.host is None:
@@ -149,6 +148,7 @@ if __name__ == '__main__':
     options, args = parser.parse_args()
     setattr(throxy,'options',options)
     setattr(throxy,'args',args)
+    throxy.debug("starting proxy")
     proxy = ProxyServer()
     try:
         asyncore.loop(timeout=0.1)
@@ -163,3 +163,4 @@ if __name__ == '__main__':
     except:
         pass
     proxy.close()
+    throxy.debug("\nproxy stopped")
