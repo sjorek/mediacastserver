@@ -8,7 +8,7 @@ Support for creating a service which runs a web server.
 import os
 
 # Twisted Imports
-from twisted.web import server, static, distrib
+from twisted.web import distrib, server, static, vhost
 from twisted.internet import interfaces
 from twisted.python import usage
 from twisted.application import internet, service, strports
@@ -43,6 +43,8 @@ class Options(usage.Options):
                      ["https", None, None, "Port to listen on for Secure HTTP."],
                      ["certificate", "c", "server.pem", "SSL certificate to use for HTTPS. "],
                      ["privkey", "k", "server.pem", "SSL certificate to use for HTTPS."],
+                     ["vhost", "v", None, "Additional vhost to run, specify it like: "
+                      "host.domain.tld:/path/to/vhosts/web/root"],
                      ]
 
     optFlags = [["notracebacks", "n", "Display tracebacks in broken web pages. " + 
@@ -125,22 +127,40 @@ This starts a webserver."""
                 from twisted.internet.ssl import DefaultOpenSSLContextFactory
             except ImportError:
                 raise usage.UsageError("SSL support not installed")
+
         if self['port'] is None:
             self['port'] = 'tcp:8080'
-
-
 
 def makeService(config):
     s = service.MultiService()
     if not config['root']:
         config['root'] = File(os.path.abspath(os.getcwd()))
-    root = config['root']
 
     if config['indexes']:
         config['root'].indexNames = config['indexes']
 
-    if isinstance(root, File):
-        root.registry.setComponent(interfaces.IServiceCollection, s)
+    if isinstance(config['root'], File):
+        config['root'].registry.setComponent(interfaces.IServiceCollection, s)
+
+    if config['vhost']:
+        vhost_root = vhost.NameVirtualHost()
+
+        vhost_fqdn = config['vhost']
+        vhost_path = os.getcwd()
+        if ":" in config['vhost']:
+            vhost_fqdn, vhost_path = config['vhost'].split(":",2)
+
+        vhost_host = File(os.path.abspath(vhost_path))
+        vhost_host.registry.setComponent(interfaces.IServiceCollection, s)
+        if config['indexes']:
+            vhost_host.indexNames = config['indexes']
+
+        vhost_root.default = config['root']
+        vhost_root.addHost(vhost_fqdn, vhost_host)
+
+        config['root'] = vhost_root
+
+    root = config['root']
 
     if config['logfile']:
         site = server.Site(root, logPath=config['logfile'])
