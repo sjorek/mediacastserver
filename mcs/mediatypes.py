@@ -1,6 +1,7 @@
 
 DEFAULT_MIME_TYPE = 'application/octet-stream'
 VIDEO_MIME_TYPES = {
+                    '.3gp': 'video/3gpp', # audio/3gpp, video/3gpp2, audio/3gpp2
                     '.avi': 'video/x-msvideo',
                     '.flv': 'video/x-flv',
                     '.f4a': 'audio/mp4',

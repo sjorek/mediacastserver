@@ -8,11 +8,39 @@ Support for creating a service which runs a web server.
 import os
 
 # Twisted Imports
-from twisted.web import distrib, server, static, vhost
+from twisted.web import distrib, rewrite, server, static, vhost
 from twisted.internet import interfaces
-from twisted.python import usage
+from twisted.python import log, usage
 from twisted.application import internet, service, strports
 from mcs import bonjour, mediatypes
+
+def rewrite_alias(aliasPath, destPath):
+    """
+    Original implementation in twisted.web.rewrite.alias.  This one
+    supports an empty alias destination.
+    
+    I am not a very good aliaser. But I'm the best I can be. If I'm
+    aliasing to a Resource that generates links, and it uses any parts
+    of request.prepath to do so, the links will not be relative to the
+    aliased path, but rather to the aliased-to path. That I can't
+    alias static.File directory listings that nicely. However, I can
+    still be useful, as many resources will play nice.
+    """
+    aliasPath = aliasPath.split('/')
+    destPath = destPath.split('/')
+    if destPath == ['']:
+        def prepend_destPath(after):
+            return after or ['']
+    else:
+        def prepend_destPath(after):
+            return destPath + after
+    def rewriter(request):
+        if request.postpath[:len(aliasPath)] == aliasPath:
+            after = request.postpath[len(aliasPath):]
+            request.postpath = prepend_destPath(after)
+            request.path = '/'+'/'.join(request.prepath+request.postpath)
+    return rewriter
+
 
 class File(static.File):
     __doc__ = static.File.__doc__
@@ -43,8 +71,6 @@ class Options(usage.Options):
                      ["https", None, None, "Port to listen on for Secure HTTP."],
                      ["certificate", "c", "server.pem", "SSL certificate to use for HTTPS. "],
                      ["privkey", "k", "server.pem", "SSL certificate to use for HTTPS."],
-                     ["vhost", "v", None, "Additional vhost to run, specify it like: "
-                      "host.domain.tld:/path/to/vhosts/web/root"],
                      ]
 
     optFlags = [["notracebacks", "n", "Display tracebacks in broken web pages. " + 
@@ -61,56 +87,104 @@ This starts a webserver."""
     def __init__(self):
         usage.Options.__init__(self)
         self['indexes'] = []
+        self['aliases'] = []
+        self['vhosts'] = []
         self['root'] = None
+
+    def opt_vhost(self, fqdn):
+        """Additional vhost(s) to run, eg.:
+        host.domain.tld
+        """
+        self['vhosts'].append({'fqdn':fqdn,
+                               'root':None,
+                               'indexes':[],
+                               'aliases':[]})
+
+    opt_v = opt_vhost
 
     def opt_index(self, indexName):
         """Add the name of a file used to check for directory indexes.
         [default: index, index.html]
         """
-        self['indexes'].append(indexName)
+        cfg = self
+        if self['vhosts']:
+            cfg = self['vhosts'][-1]
+        cfg['indexes'].append(indexName)
 
     opt_i = opt_index
+
+    def opt_alias(self, aliasMap):
+        """Additional alias(es) used to map a virtual url, eg.: 
+        alias/path[:real/path]
+        """
+        aliasPath = aliasMap
+        destPath = ''
+        if ":" in aliasMap:
+            aliasPath, destPath = aliasMap.split(":", 2)
+        alias = rewrite_alias(aliasPath.strip(), destPath.strip())
+        cfg = self
+        if self['vhosts']:
+            cfg = self['vhosts'][-1]
+        cfg['aliases'].append(alias)
+
+    opt_a = opt_alias
 
     def opt_user(self):
         """Makes a server with ~/public_html and ~/.twistd-web-pb support for
         users.
         """
-        self['root'] = distrib.UserDirectory()
+        cfg = self
+        if self['vhosts']:
+            cfg = self['vhosts'][-1]
+        cfg['root'] = distrib.UserDirectory()
 
     opt_u = opt_user
+
 
     def opt_path(self, path):
         """
         <path> is either a specific file or a directory to be set as the root
         of the web server.
         """
-
-        self['root'] = File(os.path.abspath(path))
+        cfg = self
+        if self['vhosts']:
+            cfg = self['vhosts'][-1]
+        cfg['root'] = File(os.path.abspath(path))
 
 
     def opt_mime_type(self, defaultType):
         """Specify the default mime-type for static files."""
-        if not isinstance(self['root'], File):
-            raise usage.UsageError("You can only use --mime_type after --path.")
-        self['root'].defaultType = defaultType
+        cfg = self
+        if self['vhosts']:
+            cfg = self['vhosts'][-1]
+        if not isinstance(cfg['root'], File):
+            raise usage.UsageError("You can only use --mime_type "
+                                   "after --path.")
+        cfg['root'].defaultType = defaultType
 
     opt_m = opt_mime_type
 
 
     def opt_allow_ignore_ext(self):
         """Specify whether or not a request for 'foo' should return 'foo.ext'"""
-        if not isinstance(self['root'], File):
+        cfg = self
+        if self['vhosts']:
+            cfg = self['vhosts'][-1]
+        if not isinstance(cfg['root'], File):
             raise usage.UsageError("You can only use --allow_ignore_ext "
                                    "after --path.")
-        self['root'].ignoreExt('*')
+        cfg['root'].ignoreExt('*')
 
     def opt_ignore_ext(self, ext):
         """Specify an extension to ignore.  These will be processed in order.
         """
-        if not isinstance(self['root'], File):
+        cfg = self
+        if self['vhosts']:
+            cfg = self['vhosts'][-1]
+        if not isinstance(cfg['root'], File):
             raise usage.UsageError("You can only use --ignore_ext "
                                    "after --path.")
-        self['root'].ignoreExt(ext)
+        cfg['root'].ignoreExt(ext)
 
     def postOptions(self):
         """
@@ -133,7 +207,7 @@ This starts a webserver."""
 
 def makeService(config):
     s = service.MultiService()
-    if not config['root']:
+    if config['root'] is None:
         config['root'] = File(os.path.abspath(os.getcwd()))
 
     if config['indexes']:
@@ -142,21 +216,30 @@ def makeService(config):
     if isinstance(config['root'], File):
         config['root'].registry.setComponent(interfaces.IServiceCollection, s)
 
-    if config['vhost']:
+    if config['aliases']:
+        config['root'] = rewrite.RewriterResource(config['root'],
+                                                  *config['aliases'])
+
+    if config['vhosts']:
+
         vhost_root = vhost.NameVirtualHost()
-
-        vhost_fqdn = config['vhost']
-        vhost_path = os.getcwd()
-        if ":" in config['vhost']:
-            vhost_fqdn, vhost_path = config['vhost'].split(":",2)
-
-        vhost_host = File(os.path.abspath(vhost_path))
-        vhost_host.registry.setComponent(interfaces.IServiceCollection, s)
-        if config['indexes']:
-            vhost_host.indexNames = config['indexes']
-
         vhost_root.default = config['root']
-        vhost_root.addHost(vhost_fqdn, vhost_host)
+
+        for vhost_config in config['vhosts']:
+            if vhost_config['root'] is None:
+                vhost_config['root'] = File(os.path.abspath(os.getcwd()))
+            
+            if vhost_config['indexes']:
+                vhost_config['root'].indexNames = vhost_config['indexes']
+
+            if isinstance(vhost_config['root'], File):
+                vhost_config['root'].registry.setComponent(interfaces.IServiceCollection, s)
+
+            if vhost_config['aliases']:
+                vhost_config['root'] = rewrite.RewriterResource(vhost_config['root'],
+                                                                *vhost_config['aliases'])
+
+            vhost_root.addHost(vhost_config['fqdn'], vhost_config['root'])
 
         config['root'] = vhost_root
 
