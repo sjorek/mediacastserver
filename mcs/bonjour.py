@@ -35,7 +35,7 @@ class mDNSServiceDescriptor(object):
         return "bonjour"
 
     def connectionLost(self, reason):
-        log.msg('connection lost, unregistering advertised service')
+        log.msg('Connection lost, unregistering advertised service')
         self.sdref.close()
 
 class mDNSService(service.Service):
@@ -54,14 +54,14 @@ class mDNSService(service.Service):
         self.mdns_port = port
 
     def startService(self):
-        log.msg("%s service starting" % self.name)
+        log.msg("Starting mDNS service: %s" % self.name)
         me = self
         def _success(args):
             me.mdns_sdref  = args[0]
-            log.msg('registered service: %s.%s%s' % args[1:])
+            log.msg('Registered mDNS service: %s.%s%s' % args[1:])
 
         def _failed(errorCode):
-            log.err('%s error while registering service:' % self.name)
+            log.err('Error while registering mDNS service: %s' % self.name)
             log.err(errorCode)
 
         d = self.mDNSServiceRegister(_success, _failed)
@@ -89,5 +89,5 @@ class mDNSService(service.Service):
         return d
 
     def stopService(self):
-        log.msg("%s service stopping" % self.name)
+        log.msg("Stopping mDNS service: %s" % self.name)
         service.Service.stopService(self)
