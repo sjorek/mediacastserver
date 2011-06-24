@@ -149,8 +149,15 @@ def makeService(config):
 
     site.displayTracebacks = not config["notracebacks"]
 
-    root_mdns = bonjour.Service()
-    root_mdns.setName("bonjour-http")
+    port = config['port']
+    if ":" in str(config['port']):
+        port = config['port'].split(':', 2)[1]
+
+    computername = unicode(os.popen("/usr/sbin/networksetup -getcomputername",
+                                    "r").readlines()[0]).strip()
+
+    root_mdns = bonjour.mDNSService(u"Mediacast-Webserver (%s)" % computername,
+                                    "_http._tcp", int(port))
     root_mdns.setServiceParent(s)
 
     if config['https']:
@@ -160,8 +167,8 @@ def makeService(config):
                                                    config['certificate']))
         i.setServiceParent(s)
 
-        i_mdns = bonjour.Service()
-        i_mdns.setName("bonjour-https")
+        i_mdns = bonjour.mDNSService(u"Mediacast-SSL-Webserver (%s)" % computername,
+                                     "_https._tcp", int(config['https']))
         i_mdns.setServiceParent(s)
 
     strports.service(config['port'], site).setServiceParent(s)
