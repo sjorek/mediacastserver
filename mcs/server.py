@@ -42,7 +42,7 @@ This starts a webserver, intended to serve from a filesystem."""
         self['aliases'] = []
         self['vhosts'] = []
         self['root'] = None
-        self['limit'] = None
+        self['shape'] = None
 
 
     def opt_vhost(self, fqdn):
@@ -143,16 +143,18 @@ This starts a webserver, intended to serve from a filesystem."""
         cfg['root'].ignoreExt(ext)
 
 
-    def opt_limit(self, limitMap):
+    def opt_shape(self, limitMap):
         """Limit download bandwidth server-wide, optionally with server-wide
-        initial burst and per client-connection rate-limit and initial burst: 
+        initial burst, per client-connection rate-limit and per client-connection
+        initial burst: 
         server-wide-rate[:per-client-rate[:server-wide-burst[:per-client-burst]]]
         """
         limit = [limitMap]
         if ":" in limitMap:
             limit = limitMap.split(":", 4)
-        self['limit'] = limit
+        self['shape'] = limit
 
+    opt_s = opt_shape
 
     def postOptions(self):
         """
@@ -211,8 +213,8 @@ def makeService(config):
 
     site.displayTracebacks = not config["notracebacks"]
 
-    if not config['limit'] is None:
-        site.protocol = shaper.gen_token_bucket(site.protocol, *config['limit'])
+    if not config['shape'] is None:
+        site.protocol = shaper.gen_token_bucket(site.protocol, *config['shape'])
 
     port = config['port']
     if ":" in str(config['port']):
