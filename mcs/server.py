@@ -79,7 +79,7 @@ class Options(usage.Options):
 
 
     longdesc = """\
-This starts a webserver."""
+This starts a webserver, intended to serve from a filesystem."""
 
     def __init__(self):
         usage.Options.__init__(self)

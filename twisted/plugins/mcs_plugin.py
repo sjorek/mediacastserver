@@ -3,8 +3,8 @@
 
 from twisted.application.service import ServiceMaker
 
-TwistedHSS = ServiceMaker(
-    "HTTP(s) Server for static files",
+TwistedMCS = ServiceMaker(
+    "HTTP Server for static files",
     "mcs.server",
-    "A general-purpose web server which serves from a filesystem.",
+    "A general-purpose web server, intended to serve from a filesystem.",
     "mediacastserver")
