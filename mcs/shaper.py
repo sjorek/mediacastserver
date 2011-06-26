@@ -106,8 +106,8 @@ if __name__ == "__main__":
                                                        server_burst, client_burst)
         #site.protocol = wire.Chargen
     else:
-        print "Unknown server-type '%s'. Only 'web' and 'chargen' are supported." % server_type
-        sys.exit(-1)
+        sys.exit("Unknown server-type '%s'. "
+                 "Only 'web' and 'chargen' are supported." % server_type)
 
     from twisted.internet import reactor
     reactor.listenTCP(server_port, site)
