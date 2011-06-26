@@ -12,7 +12,7 @@ from twisted.web import distrib, rewrite, server, static, vhost
 from twisted.internet import interfaces
 from twisted.python import log, usage
 from twisted.application import internet, service, strports
-from mcs import bonjour, mediatypes
+from mcs import bonjour, mediatypes, shaper
 
 def rewrite_alias(aliasPath, destPath):
     """
@@ -38,7 +38,7 @@ def rewrite_alias(aliasPath, destPath):
         if request.postpath[:len(aliasPath)] == aliasPath:
             after = request.postpath[len(aliasPath):]
             request.postpath = prepend_destPath(after)
-            request.path = '/'+'/'.join(request.prepath+request.postpath)
+            request.path = '/' + '/'.join(request.prepath + request.postpath)
     return rewriter
 
 
@@ -68,9 +68,6 @@ class Options(usage.Options):
     optParameters = [["port", "p", None, "strports description of the port to "
                       "start the server on."],
                      ["logfile", "l", None, "Path to web CLF (Combined Log Format) log file."],
-                     ["https", None, None, "Port to listen on for Secure HTTP."],
-                     ["certificate", "c", "server.pem", "SSL certificate to use for HTTPS. "],
-                     ["privkey", "k", "server.pem", "SSL certificate to use for HTTPS."],
                      ]
 
     optFlags = [["notracebacks", "n", "Display tracebacks in broken web pages. " + 
@@ -90,6 +87,8 @@ This starts a webserver."""
         self['aliases'] = []
         self['vhosts'] = []
         self['root'] = None
+        self['limit'] = None
+
 
     def opt_vhost(self, fqdn):
         """Additional vhost(s) to run, eg.:
@@ -102,6 +101,7 @@ This starts a webserver."""
 
     opt_v = opt_vhost
 
+
     def opt_index(self, indexName):
         """Add the name of a file used to check for directory indexes.
         [default: index, index.html]
@@ -113,8 +113,9 @@ This starts a webserver."""
 
     opt_i = opt_index
 
+
     def opt_alias(self, aliasMap):
-        """Additional alias(es) used to map a virtual url, eg.: 
+        """Alias(es) mapping a (virtual) path to a (real) path, eg.: 
         alias/path[:real/path]
         """
         aliasPath = aliasMap
@@ -128,6 +129,7 @@ This starts a webserver."""
         cfg['aliases'].append(alias)
 
     opt_a = opt_alias
+
 
     def opt_user(self):
         """Makes a server with ~/public_html and ~/.twistd-web-pb support for
@@ -150,7 +152,6 @@ This starts a webserver."""
         if self['vhosts']:
             cfg = self['vhosts'][-1]
         cfg['root'] = File(os.path.abspath(path))
-
 
     def opt_mime_type(self, defaultType):
         """Specify the default mime-type for static files."""
@@ -186,22 +187,25 @@ This starts a webserver."""
                                    "after --path.")
         cfg['root'].ignoreExt(ext)
 
+
+    def opt_limit(self, limitMap):
+        """Limit download bandwidth server-wide, optionally with server-wide
+        initial burst and per client-connection rate-limit and initial burst: 
+        server-wide-rate[:per-client-rate[:server-wide-burst[:per-client-burst]]]
+        """
+        limit = [limitMap]
+        if ":" in limitMap:
+            limit = limitMap.split(":", 4)
+        self['limit'] = limit
+
+
     def postOptions(self):
         """
         Set up conditional defaults and check for dependencies.
 
-        If SSL is not available but an HTTPS server was configured, raise a
-        L{UsageError} indicating that this is not possible.
-
         If no server port was supplied, select a default appropriate for the
         other options supplied.
         """
-        if self['https']:
-            try:
-                from twisted.internet.ssl import DefaultOpenSSLContextFactory
-            except ImportError:
-                raise usage.UsageError("SSL support not installed")
-
         if self['port'] is None:
             self['port'] = 'tcp:8080'
 
@@ -252,6 +256,9 @@ def makeService(config):
 
     site.displayTracebacks = not config["notracebacks"]
 
+    if not config['limit'] is None:
+        site.protocol = shaper.gen_token_bucket(site.protocol, *config['limit'])
+
     port = config['port']
     if ":" in str(config['port']):
         port = config['port'].split(':', 2)[1]
@@ -259,20 +266,9 @@ def makeService(config):
     computername = unicode(os.popen("/usr/sbin/networksetup -getcomputername",
                                     "r").readlines()[0]).strip()
 
-    root_mdns = bonjour.mDNSService(u"Mediacast-Webserver (%s)" % computername,
-                                    "_http._tcp", int(port))
+    root_mdns = bonjour.mDNSService(u"Mediacast-Webserver (%s on port %s)" % 
+                                    (computername,port), "_http._tcp", int(port))
     root_mdns.setServiceParent(s)
-
-    if config['https']:
-        from twisted.internet.ssl import DefaultOpenSSLContextFactory
-        i = internet.SSLServer(int(config['https']), site,
-                      DefaultOpenSSLContextFactory(config['privkey'],
-                                                   config['certificate']))
-        i.setServiceParent(s)
-
-        i_mdns = bonjour.mDNSService(u"Mediacast-SSL-Webserver (%s)" % computername,
-                                     "_https._tcp", int(config['https']))
-        i_mdns.setServiceParent(s)
 
     strports.service(config['port'], site).setServiceParent(s)
 

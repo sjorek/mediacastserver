@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python -B
 
 __revision__ = '$Rev$'
 
