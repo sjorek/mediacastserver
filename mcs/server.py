@@ -6,11 +6,11 @@ Support for creating a service which runs a web server.
 """
 
 import sys, os
-
+import warnings
 # Twisted Imports
 
 from twisted.python import log, usage
-from twisted.web import distrib, rewrite, server, vhost
+from twisted.web import distrib, error, proxy, rewrite, server, vhost
 from twisted.internet import interfaces
 from twisted.application import service, strports
 
@@ -37,12 +37,14 @@ This starts a webserver, intended to serve from a filesystem."""
 
     def __init__(self):
         usage.Options.__init__(self)
-        self['hosts'] = [{'indexes': [],
-                          'aliases': [],
-                          'vhosts': [],
+        self['hosts'] = [{
                           'root': None,
                           'shape': None,
-                          'port': None
+                          'port': None,
+                          'indexes': [],
+                          'aliases': [],
+                          'vhosts': [],
+                          'leafs': {}
                           }]
 
 
@@ -57,12 +59,13 @@ This starts a webserver, intended to serve from a filesystem."""
     def opt_host(self, portStr):
         """port number (not strports description!) to
         start an additional server on."""
-        self['hosts'].append({'indexes': [],
+        self['hosts'].append({'root': None,
+                              'shape': None,
+                              'port': 'tcp:%d' % int(portStr),
+                              'indexes': [],
                               'aliases': [],
                               'vhosts': [],
-                              'root': None,
-                              'shape': None,
-                              'port': 'tcp:%d' % int(portStr)
+                              'leafs': {}
                               })
 
     opt_h = opt_host
@@ -72,10 +75,12 @@ This starts a webserver, intended to serve from a filesystem."""
         """Additional vhost(s) to run, eg.:
         host.domain.tld
         """
-        self['hosts'][-1]['vhosts'].append({'fqdn':fqdn,
-                                            'root':None,
+        self['hosts'][-1]['vhosts'].append({'root':None,
+                                            'fqdn':fqdn,
                                             'indexes':[],
-                                            'aliases':[]})
+                                            'aliases':[],
+                                            'leafs': {}
+                                            })
 
     opt_v = opt_vhost
 
@@ -94,12 +99,12 @@ This starts a webserver, intended to serve from a filesystem."""
 
     def opt_alias(self, aliasMap):
         """Alias(es) mapping a (virtual) path to a (real) path, eg.: 
-        alias/path[:real/path]
+        alias/path[,real/path]
         """
         aliasPath = aliasMap
         destPath = ''
-        if ":" in aliasMap:
-            aliasPath, destPath = aliasMap.split(":", 2)
+        if "," in aliasMap:
+            aliasPath, destPath = aliasMap.split(",", 2)
         alias = alias.rewrite(aliasPath.strip(), destPath.strip())
         cfg = self['hosts'][-1]
         if self['hosts'][-1]['vhosts']:
@@ -170,15 +175,64 @@ This starts a webserver, intended to serve from a filesystem."""
         """Limit download bandwidth server-wide, optionally with server-wide
         initial burst, per client-connection rate-limit and per client-connection
         initial burst: 
-        server-wide-rate[:per-client-rate[:server-wide-burst[:per-client-burst]]]
+        server-wide-rate[,per-client-rate[,server-wide-burst[,per-client-burst]]]
         """
         limit = [limitMap]
-        if ":" in limitMap:
-            limit = limitMap.split(":", 4)
+        if "," in limitMap:
+            limit = limitMap.split(",", 4)
         self['hosts'][-1]['shape'] = limit
 
     opt_s = opt_shape
 
+
+    def opt_reverse(self, proxyStr):
+        """run a reverse proxy, either as the whole server or on a direct
+        child-path (leaf) only eg.:
+        host.domain.tld[,port-number[,path/to/proxy[,path/on/this/server]]]"""
+        proxyCfg = proxyStr.split(',', 4)
+        
+        host = proxyCfg[0]
+
+        if len(proxyCfg) > 1:
+            port = int(proxyCfg[1])
+        else:
+            port = 80
+
+        if len(proxyCfg) > 2:
+            path = proxyCfg[2]
+        else:
+            path = ''
+
+        if len(proxyCfg) > 3:
+            leaf = proxyCfg[3]
+        else:
+            leaf = None
+
+        res = proxy.ReverseProxyResource(host, port, path)
+
+        cfg = self['hosts'][-1]
+        if self['hosts'][-1]['vhosts']:
+            cfg = self['hosts'][-1]['vhosts'][-1]
+        if leaf is None:
+            cfg['root'] = res
+        else:
+            cfg['leafs'].setdefault(leaf, res)
+
+
+    def opt_monster(self, monsterPath):
+        """add a vhost monster child-path intended to connect a reverse proxy.
+        
+        This makes it possible to put it behind a reverse proxy transparently.
+        Just have the reverse proxy proxy to
+         
+            host,port,/vhost-monster-child-path/http/external-host:port/
+        
+        and on redirects and other link calculation, the external-host:port
+        will be transmitted to this client."""
+        cfg = self['hosts'][-1]
+        if self['hosts'][-1]['vhosts']:
+            cfg = self['hosts'][-1]['vhosts'][-1]
+        cfg['leafs'].setdefault(monsterPath, vhost.VHostMonsterResource())
 
     def postOptions(self):
         """
@@ -193,11 +247,44 @@ This starts a webserver, intended to serve from a filesystem."""
         ports = {}
         for host_config in self['hosts']:
             if ports.has_key(host_config['port']):
-                raise usage.UsageError("Duplicate port definition: %s" %
+                raise usage.UsageError("Duplicate port definition: %s" % 
                                        host_config['port'])
             ports[host_config['port']] = True
         del ports
 
+def prepareMultiService(multi_service, config):
+
+    if config['root'] is None:
+        config['root'] = static.File(os.path.abspath(os.getcwd()))
+
+    if config['indexes']:
+        config['root'].indexNames = config['indexes']
+
+    for path, res in config['leafs'].iteritems():
+        segments = path.split('/')
+        print 'path %s segs %s' % (path,segments), config['root']
+        parent = config['root']
+        for segment in range(0, len(segments) - 1, 1):
+            child = parent.getChildWithDefault(segments[segment], None)
+            if isinstance(child, error.NoResource):
+                child = static.PathSegment()
+                parent.putChild(segments[segment], child)
+            elif segment > 0 and not isinstance(static.Data):
+                warnings.warn("path '%s' might not work." % path)
+            parent = child
+        if isinstance(parent.getChildWithDefault(segments[-1], None),
+                      error.NoResource):
+            parent.putChild(segments[-1], res)
+        else:
+            warnings.warn("ignoring path '%s', as it is already defined." % path)
+
+    if isinstance(config['root'], static.File):
+        config['root'].registry.setComponent(interfaces.IServiceCollection,
+                                             multi_service)
+
+    if config['aliases']:
+        config['root'] = rewrite.RewriterResource(config['root'],
+                                                  *config['aliases'])
 
 def makeService(config):
     computername = unicode(os.popen("/usr/sbin/networksetup -getcomputername",
@@ -205,18 +292,8 @@ def makeService(config):
     s = service.MultiService()
 
     for host_config in config['hosts']:
-        if host_config['root'] is None:
-            host_config['root'] = static.File(os.path.abspath(os.getcwd()))
 
-        if host_config['indexes']:
-            host_config['root'].indexNames = host_config['indexes']
-
-        if isinstance(host_config['root'], static.File):
-            host_config['root'].registry.setComponent(interfaces.IServiceCollection, s)
-
-        if host_config['aliases']:
-            host_config['root'] = rewrite.RewriterResource(host_config['root'],
-                                                           *host_config['aliases'])
+        prepareMultiService(s, host_config)
 
         if host_config['vhosts']:
 
@@ -224,18 +301,8 @@ def makeService(config):
             vhost_root.default = host_config['root']
 
             for vhost_config in host_config['vhosts']:
-                if vhost_config['root'] is None:
-                    vhost_config['root'] = static.File(os.path.abspath(os.getcwd()))
-                
-                if vhost_config['indexes']:
-                    vhost_config['root'].indexNames = vhost_config['indexes']
 
-                if isinstance(vhost_config['root'], static.File):
-                    vhost_config['root'].registry.setComponent(interfaces.IServiceCollection, s)
-
-                if vhost_config['aliases']:
-                    vhost_config['root'] = rewrite.RewriterResource(vhost_config['root'],
-                                                                    *vhost_config['aliases'])
+                prepareMultiService(s, vhost_config)
 
                 vhost_root.addHost(vhost_config['fqdn'], vhost_config['root'])
 

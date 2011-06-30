@@ -1,6 +1,13 @@
 
 from twisted.web import static
+
 from mcs import mediatypes
+
+Data = static.Data
+
+class PathSegment(static.Data):
+    def __init__(self):
+        static.Data.__init__(self, type='text/html', data='')
 
 class File(static.File):
     __doc__ = static.File.__doc__
