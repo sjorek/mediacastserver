@@ -5,11 +5,11 @@
 Support for creating a service which runs a web server.
 """
 
-import sys, os
+import os
 import warnings
 # Twisted Imports
 
-from twisted.python import log, usage
+from twisted.python import usage
 from twisted.web import distrib, error, proxy, rewrite, server, vhost
 from twisted.internet import interfaces
 from twisted.application import service, strports
@@ -41,6 +41,7 @@ This starts a webserver, intended to serve from a filesystem."""
                           'root': None,
                           'shape': None,
                           'port': None,
+                          'bonjour': [],
                           'indexes': [],
                           'aliases': [],
                           'vhosts': [],
@@ -62,6 +63,7 @@ This starts a webserver, intended to serve from a filesystem."""
         self['hosts'].append({'root': None,
                               'shape': None,
                               'port': 'tcp:%d' % int(portStr),
+                              'bonjour': [],
                               'indexes': [],
                               'aliases': [],
                               'vhosts': [],
@@ -234,6 +236,15 @@ This starts a webserver, intended to serve from a filesystem."""
             cfg = self['hosts'][-1]['vhosts'][-1]
         cfg['leafs'].setdefault(monsterPath, vhost.VHostMonsterResource())
 
+
+    def opt_bonjour(self, bonjourStr):
+        """override or append additional bonjour (mDNS/zeroconf) record.  the
+        first occurrence per host overrides the default description, subsequent
+        occurrences append additional records.  eg.:
+        'computer %s on port %d'"""
+        self['hosts'][-1]['bonjour'].append(unicode(bonjourStr))
+
+
     def postOptions(self):
         """
         Set up conditional defaults and check for dependencies.
@@ -321,11 +332,19 @@ def makeService(config):
 
         port = host_config['port']
         if ":" in str(host_config['port']):
-            port = host_config['port'].split(':', 2)[1]
+            port = int(host_config['port'].split(':', 2)[1])
 
-        root_mdns = bonjour.mDNSService(u"Mediacast-Webserver (%s on port %s)" % 
-                                        (computername, port), "_http._tcp", int(port))
-        root_mdns.setServiceParent(s)
+        if not host_config['bonjour']:
+            host_config['bonjour'].append(u"Mediacast-Webserver (%s on port %d)")
+        
+        for bonjour_desc in host_config['bonjour']:
+            if '%s' in bonjour_desc and '%d' in bonjour_desc:
+                bonjour_desc %= (computername, port)
+            elif '%s' in bonjour_desc:
+                bonjour_desc %= computername
+            elif '%d' in bonjour_desc:
+                bonjour_desc %= port
+            bonjour.mDNSService(bonjour_desc, "_http._tcp", port).setServiceParent(s)
 
         strports.service(host_config['port'], site).setServiceParent(s)
 
