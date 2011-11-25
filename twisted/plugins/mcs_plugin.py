@@ -1,4 +1,4 @@
-# Copyright (c) 2001-2008 Twisted Matrix Laboratories.
+# Copyright (c) 2011 Stephan Jorek <stephan.jorek@gmail.com>.
 # See LICENSE for details.
 
 from twisted.application.service import ServiceMaker
