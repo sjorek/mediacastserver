@@ -13,9 +13,11 @@ from zope import interface
 # d = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 # sys.path.insert(0, os.path.abspath(os.path.join(d, os.pardir, 'pybonjour')))
 # del d
-
-import pybonjour
-
+try:
+    import pybonjour
+except ImportError:
+    print "pybonjour-library missing in %s" % __file__
+    exit(1);
 
 class mDNSServiceDescriptor(object):
     """
