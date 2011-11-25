@@ -1,3 +1,5 @@
+# Copyright (c) 2011 Stephan Jorek <stephan.jorek@gmail.com>.
+# See LICENSE for details.
 
 DEFAULT_MIME_TYPE = 'application/octet-stream'
 VIDEO_MIME_TYPES = {

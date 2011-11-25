@@ -1,4 +1,6 @@
 #!/usr/bin/env python -B
+# Copyright (c) 2011 Stephan Jorek <stephan.jorek@gmail.com>.
+# See LICENSE for details.
 
 """Example of rate-limiting your web server.
 
@@ -30,7 +32,7 @@ def gen_server_wide_token_bucket(server_rate, server_burst=None):
     serverBucket.rate = int(server_rate)
 
     serverFilter.buckets[None] = serverBucket
-    
+
     return serverFilter
 
 def gen_per_client_token_bucket(client_rate, client_burst=None):
@@ -73,7 +75,7 @@ if __name__ == "__main__":
 
     # Cap total server traffic at 20 kB/s
     server_burst=20000
-    server_rate=20000 
+    server_rate=20000
     # Your first 10k is free
     client_burst=10000
     # One kB/s thereafter

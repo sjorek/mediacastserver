@@ -1,8 +1,8 @@
-# Copyright (c) 2001-2008 Twisted Matrix Laboratories.
+# Copyright (c) 2011 Stephan Jorek <stephan.jorek@gmail.com>.
 # See LICENSE for details.
 
 """
-Support for creating a service which runs a web server.
+Create a service which runs a web server.
 """
 
 import os
@@ -25,7 +25,7 @@ class Options(usage.Options):
     optParameters = [["logfile", "l", None, "Path to web CLF (Combined Log Format) log file."],
                      ]
 
-    optFlags = [["notracebacks", "n", "Display tracebacks in broken web pages. " + 
+    optFlags = [["notracebacks", "n", "Display tracebacks in broken web pages. " +
                  "Displaying tracebacks to users may be security risk!"],
                 ]
 
@@ -100,7 +100,7 @@ This starts a webserver, intended to serve from a filesystem."""
 
 
     def opt_alias(self, aliasMap):
-        """Alias(es) mapping a (virtual) path to a (real) path, eg.: 
+        """Alias(es) mapping a (virtual) path to a (real) path, eg.:
         alias/path[,real/path]
         """
         aliasPath = aliasMap
@@ -176,7 +176,7 @@ This starts a webserver, intended to serve from a filesystem."""
     def opt_shape(self, limitMap):
         """Limit download bandwidth server-wide, optionally with server-wide
         initial burst, per client-connection rate-limit and per client-connection
-        initial burst: 
+        initial burst:
         server-wide-rate[,per-client-rate[,server-wide-burst[,per-client-burst]]]
         """
         limit = [limitMap]
@@ -192,7 +192,7 @@ This starts a webserver, intended to serve from a filesystem."""
         child-path (leaf) only eg.:
         host.domain.tld[,port-number[,path/to/proxy[,path/on/this/server]]]"""
         proxyCfg = proxyStr.split(',', 4)
-        
+
         host = proxyCfg[0]
 
         if len(proxyCfg) > 1:
@@ -223,12 +223,12 @@ This starts a webserver, intended to serve from a filesystem."""
 
     def opt_monster(self, monsterPath):
         """add a vhost monster child-path intended to connect a reverse proxy.
-        
+
         This makes it possible to put it behind a reverse proxy transparently.
         Just have the reverse proxy proxy to
-         
+
             host,port,/vhost-monster-child-path/http/external-host:port/
-        
+
         and on redirects and other link calculation, the external-host:port
         will be transmitted to this client."""
         cfg = self['hosts'][-1]
@@ -258,7 +258,7 @@ This starts a webserver, intended to serve from a filesystem."""
         ports = {}
         for host_config in self['hosts']:
             if ports.has_key(host_config['port']):
-                raise usage.UsageError("Duplicate port definition: %s" % 
+                raise usage.UsageError("Duplicate port definition: %s" %
                                        host_config['port'])
             ports[host_config['port']] = True
         del ports
@@ -336,7 +336,7 @@ def makeService(config):
 
         if not host_config['bonjour']:
             host_config['bonjour'].append(u"Mediacast-Webserver (%s on port %d)")
-        
+
         for bonjour_desc in host_config['bonjour']:
             if '%s' in bonjour_desc and '%d' in bonjour_desc:
                 bonjour_desc %= (computername, port)

@@ -1,4 +1,7 @@
-import sys, os
+# Copyright (c) 2011 Stephan Jorek <stephan.jorek@gmail.com>.
+# See LICENSE for details.
+
+# import sys, os
 
 from twisted.application import service
 from twisted.internet import reactor
@@ -7,9 +10,9 @@ from twisted.internet.interfaces import IReadDescriptor
 from twisted.python import log
 from zope import interface
 
-d = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-sys.path.insert(0, os.path.abspath(os.path.join(d, os.pardir, 'pybonjour')))
-del d
+# d = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+# sys.path.insert(0, os.path.abspath(os.path.join(d, os.pardir, 'pybonjour')))
+# del d
 
 import pybonjour
 
@@ -64,7 +67,7 @@ class mDNSService(service.Service):
             log.err('Error while registering mDNS service: %s' % self.name)
             log.err(errorCode)
 
-        d = self.mDNSServiceRegister(_success, _failed)
+        self.mDNSServiceRegister(_success, _failed)
         service.Service.startService(self)
 
     def mDNSServiceRegister(self, _callback, _errback):
