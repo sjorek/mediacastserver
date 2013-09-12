@@ -1,4 +1,4 @@
-# Copyright (c) 2011 Stephan Jorek <stephan.jorek@gmail.com>.
+# © copyright 2011-2013 Stephan Jorek <stephan.jorek@gmail.com>.
 # See LICENSE for details.
 
 DEFAULT_MIME_TYPE = 'application/octet-stream'

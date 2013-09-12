@@ -1,5 +1,5 @@
 #!/usr/bin/env python -B
-# Copyright (c) 2011 Stephan Jorek <stephan.jorek@gmail.com>.
+# © copyright 2011-2013 Stephan Jorek <stephan.jorek@gmail.com>.
 # See LICENSE for details.
 
 """Example of rate-limiting your web server.
