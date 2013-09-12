@@ -332,7 +332,8 @@ def makeService(config):
 
         port = host_config['port']
         if ":" in str(host_config['port']):
-            port = int(host_config['port'].split(':', 2)[1])
+            port = host_config['port'].split(':', 2)[1]
+        port = int(port)
 
         if not host_config['bonjour']:
             host_config['bonjour'].append(u"Mediacast-Webserver (%s on port %d)")
