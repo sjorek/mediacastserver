@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # © copyright 2011-2013 Stephan Jorek <stephan.jorek@gmail.com>.
 # See LICENSE for details.
 
